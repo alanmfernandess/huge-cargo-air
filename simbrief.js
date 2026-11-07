@@ -111,7 +111,7 @@
     if(Number.isFinite(age)&&age>24*3600e3) warnings.push('Plano gerado há mais de 24 horas. Meteorologia e NOTAMs podem estar desatualizados.');
     if(s.hasTLR) warnings.push('Existe análise TLR no OFP; não substitui AFM, pista, obstáculos e despacho certificado.');
     const rows=s.points.map((p,i)=>'<tr><td>'+(i+1)+'</td><td><b>'+h(p.id)+'</b></td><td>'+h(p.stage)+'</td><td class="num">'+pretty(p.alt)+'</td><td class="num">'+pretty(p.legDist,1)+'</td><td class="num">'+pretty(p.gs)+'</td><td class="num">'+h(p.windDir===null?'—':pretty(p.windDir)+'°/'+pretty(p.windSpd)+' kt')+'</td><td class="num">'+pretty(p.legFuel,0)+'</td><td class="num">'+pretty(p.fuelRemain,0)+'</td></tr>').join('');
-    return '<div class="sectionHead"><div><h2>'+h(s.origin)+' → '+h(s.destination)+'</h2><p>'+h(s.flight)+' · '+h(s.aircraft || 'Aeronave não informada')+' · '+h(s.registration||'Sem matrícula')+' · AIRAC '+h(s.airac||'—')+'</p></div><span class="pill pending">OFP não certificado</span></div>'+
+    return '<div class="sectionHead"><div><h2>'+h(s.origin)+' → '+h(s.destination)+'</h2><p>'+h(s.flight)+' · '+h(s.aircraft || 'Aeronave não informada')+' · '+h(s.registration||'Sem matrícula')+' · AIRAC '+h(s.airac||'—')+'</p></div><div class="flex"><span class="pill pending">OFP não certificado</span><button class="hca-primary" id="sbCreateMission">+ Criar missão</button></div></div>'+ 
     '<div class="kpis">'+kpi('Distância planejada',pretty(s.routeNM)+' NM','Trajeto, não ortodrômica')+
       kpi('Payload',pretty(s.payloadT,2)+' t','Valor informado no SimBrief')+
       kpi('Combustível de rampa',pretty(s.rampFuelT,2)+' t','Reservas incluídas conforme OFP')+
@@ -154,6 +154,7 @@
   }
   document.addEventListener('click', async (ev) => {
     if(ev.target.closest('#sbFile')){qs('sbUpload')?.click();return;}
+    if(ev.target.closest('#sbCreateMission')){if(window.HCACareer)window.HCACareer.openFromOFP(state.simbrief);return;}
     if(ev.target.closest('#sbApplyDistance')){
       const s=state.simbrief, r=state.routes.find(r=>r.code===s.destination && s.origin==='PANC');
       if(!r || !Number.isFinite(s.routeNM) || s.routeNM<=0)return;
