@@ -32,6 +32,20 @@ Também é possível abrir `index.html` localmente no navegador.
 
 **Backup:** o botão **Exportar JSON** salva também missões, snapshots do OFP e lançamentos da carreira. A importação restaura esse estado no navegador, mas não sincroniza entre dispositivos.
 
+## Maintenance Control v2.1 — integração com a carreira
+
+O módulo **Manutenção** controla os 12 JT3D distribuídos entre as aeronaves HCA-701, HCA-702 e HCA-703:
+
+- Cada voo concluído no Xbox acumula horas de bloco e **um ciclo por motor instalado**, uma vez por missão. Registros antigos da carreira são migrados automaticamente sem duplicação.
+- Inspeções por horas/ciclos e revisões em oficina possuem intervalos **hipotéticos editáveis**; quando vencidos, bloqueiam novas missões daquela aeronave. Não são limites de manutenção aprovados.
+- AOG manual, entrada/saída da oficina e reparo consomem kits de peças e registram serviços; é possível reatribuir missões pendentes a outra aeronave disponível na origem ou cancelar o contrato com penalidade hipotética.
+- Estoque contabilizado em **consumíveis de linha** e lotes FIFO de **kits de inspeção** e **kits de reparo**, preservando os preços de aquisição de cada lote. Compras geram contas a pagar; consumo reconhece despesa e reduz o estoque.
+- O histórico diferencia **despesa**, **contas a pagar** e **pagamento**. A carreira exibe conferência do razão (resultado + variação de caixa, estoque e obrigações).
+- Simulação estocástica de AOG **desativada por padrão**. Quando ligada, usa taxa de falhas sintética por 1000 engine-BH e seed determinística da missão/motor. Os resultados não demonstram confiabilidade real do JT3D.
+- Backup/restore da carreira inclui estado dos motores, eventos, estoque e faturas pelo JSON local.
+
+**Limitações:** preços, falhas e intervalos são hipóteses de gestão; a disponibilidade "READY" só indica ausência dos bloqueios simulados, não liberação técnica real. Não existe controle de serial number real de motor, calendário certificado, ADs, LLP, MEL/CDL, ferramental, equipe escalada, lead time de peças ou despacho autorizado. O razão da carreira permanece **separado da previsão financeira de 36 meses**, evitando somas indevidas entre missões observadas e projeções. O custo por hora de consumíveis é uma proxy financeira e não substitui um bill of materials.
+
 ## SimBrief Dispatch (primeira integração)
 
 - Selecione **SimBrief Dispatch** na navegação lateral.
