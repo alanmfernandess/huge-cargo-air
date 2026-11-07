@@ -46,6 +46,14 @@ O módulo **Manutenção** controla os 12 JT3D distribuídos entre as aeronaves 
 
 **Limitações:** preços, falhas e intervalos são hipóteses de gestão; a disponibilidade "READY" só indica ausência dos bloqueios simulados, não liberação técnica real. Não existe controle de serial number real de motor, calendário certificado, ADs, LLP, MEL/CDL, ferramental, equipe escalada, lead time de peças ou despacho autorizado. O razão da carreira permanece **separado da previsão financeira de 36 meses**, evitando somas indevidas entre missões observadas e projeções. O custo por hora de consumíveis é uma proxy financeira e não substitui um bill of materials.
 
+### Diagnóstico de erro HTTP 400 do SimBrief
+
+A API de recuperação do **último OFP** aceita `username=<Navigraph Alias>` ou `userid=<Pilot ID numérico de 1–7 dígitos>`, com `json=v2`. O HCA detecta o formato ao importar e exibe o campo `fetch.status` retornado pelo SimBrief, mesmo em respostas HTTP 400 ou XML. Não confunda o status HTTP 400 (requisição recebida e recusada) com um erro de conexão/CORS.
+
+Se a importação retornar "Nenhum OFP", **gere** (não apenas salve ou edite) um plano no [SimBrief Dispatch](https://dispatch.simbrief.com/), utilizando a conta correta. Se apontar "Conta não localizada", veja o **Navigraph Alias** e o **Pilot ID** em [Configurações da conta](https://dispatch.simbrief.com/account). **E-mail e "Original Username" não são o Alias requerido pela API.**
+
+Os testes sintéticos cobrem Alias/Pilot ID, mensagens de erro XML/JSON, código HTTP 200/400 e preservação do último plano válido. Não testamos consultas autenticadas a uma conta pessoal; a API é utilizada apenas mediante clique.
+
 ## SimBrief Dispatch (primeira integração)
 
 - Selecione **SimBrief Dispatch** na navegação lateral.
