@@ -16,6 +16,21 @@ Também é possível abrir `index.html` localmente no navegador.
 3. Escolha **main** e **/(root)** e clique **Save**.
 4. Aguarde a implantação e confira a URL indicada pelo GitHub.
 
+## SimBrief Dispatch (primeira integração)
+
+- Selecione **SimBrief Dispatch** na navegação lateral.
+- Gere primeiro um OFP no SimBrief usando o perfil desejado do Boeing 707-320C.
+- Informe somente o seu **Navigraph Alias** e clique **Importar último OFP**.
+- A importação usa o endpoint público de leitura `xml.fetcher.php` com `json=v2`; não solicita senha ou chave de API.
+- Se o navegador impedir a leitura direta por **CORS**, use **Importar JSON/XML** com o arquivo OFP obtido do SimBrief.
+- O módulo exibe mass balance, navlog, perfil de altitude, vento e meteorologia conforme dados disponíveis no plano.
+- Em rotas PANC → destino presentes na malha, é possível transferir a **distância planejada** do OFP ao modelo financeiro; essa ação não altera automaticamente payload, tarifas ou aprovação técnica.
+- A importação é **manual, sob demanda**: o sistema não monitora a conta SimBrief automaticamente.
+- As informações importadas são guardadas no estado local da carreira e acompanham a exportação JSON. O alias do usuário permanece no armazenamento local do navegador.
+- O perfil comunitário da aeronave e as análises TLR do SimBrief **não substituem performance certificada ou AFM**.
+
+Referências: https://forum.navigraph.com/t/fetching-a-users-latest-ofp-data/5297 e https://developers.navigraph.com/docs/simbrief/using-the-api
+
 ## Funcionalidades do protótipo
 
 - Dashboard de diretoria e indicadores financeiros.
