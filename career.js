@@ -102,7 +102,7 @@ function jobForm(){
  '<form id="careerCreateForm" class="hca-form"><label>Aeronave<select id="careerAircraft" required>'+state.fleet.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+' · '+esc(position(a.id))+(activeFor(a.id)?' · ocupada':'')+'</option>').join('')+'</select></label>'+
  '<label>Receita contratada (US$)<input id="careerRevenue" type="number" min="0" step="100" value="'+defaultRevenue+'" required></label>'+
  '<label>Cliente / contrato<input id="careerClient" maxlength="100" placeholder="Contrato fictício · lote dedicado" value="Contrato simulado"></label>'+
- '<div class="hca-form-actions"><button class="hca-primary" type="submit">Aceitar contrato</button><button class="hca-quiet" type="button" id="careerDiscard">Descartar</button></div></form>'+
+ '<div class="hca-form-actions"><div class="hca-chip">Contribuição preliminar: <b id="careerMarginPreview">'+usd(defaultRevenue-est.expense)+'</b></div><button class="hca-primary" type="submit">Aceitar contrato</button><button class="hca-quiet" type="button" id="careerDiscard">Descartar</button></div></form>'+
  '<div class="hca-note">Receita sugerida pelo modelo, não cotação real. AFM, pista, meteorologia e infraestrutura permanecem pendentes. Aceitar cria uma missão <b>virtual</b>, não autoriza despacho real.</div></div></div>';
 }
 function missionSummary(m){
@@ -161,6 +161,9 @@ function render(){
 function getInput(id){return byId(id)?.value??'';}
 function makeMission(){
  if(!draft)throw Error('Nenhum OFP selecionado.');
+ if(!Number.isFinite(Number(draft.routeNM))||Number(draft.routeNM)<=0)throw Error('OFP sem distância utilizável.');
+ if([['towT','mtow'],['zfwT','mzfw'],['ldwT','mlw']].some(([src,lim])=>has(draft[src])&&Number(draft[src])>Number(state.model[lim])+0.001))throw Error('Massas do OFP excedem os limites estruturais de referência.');
+ if(has(draft.payloadT)&&Number(draft.payloadT)>Number(state.model.commercialCapT)+0.001)throw Error('Payload excede o limite comercial configurado.');
  const aircraft=getInput('careerAircraft');
  if(!state.fleet.some(a=>a.id===aircraft))throw Error('Aeronave inválida.');
  if(activeFor(aircraft))throw Error('Esta aeronave já possui uma missão em aberto.');
@@ -243,6 +246,9 @@ document.addEventListener('click',e=>{
  if(e.target.closest('#careerBack')){selected=null;statusMessage='';window.render();return;}
  if(e.target.closest('#careerDiscard')){draft=null;statusMessage='Rascunho descartado. O OFP original permanece no SimBrief.';window.render();return;}
  if(e.target.closest('#careerUseOFP')){openFromOFP(state.simbrief);return;}
+});
+document.addEventListener('input',e=>{
+ if(e.target.id==='careerRevenue'&&draft){const x=byId('careerMarginPreview');if(x)x.textContent=usd(number(e.target.value)-estimate(draft).expense);}
 });
 document.addEventListener('submit',e=>{
  if(e.target.id==='careerCreateForm'){e.preventDefault();try{makeMission();}catch(err){statusMessage=err.message;window.render();}return;}
