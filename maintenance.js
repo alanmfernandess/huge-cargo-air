@@ -182,7 +182,9 @@ function finance(){
  const expenses=ev.reduce((a,x)=>a+q(x.expense),0);
  const payables=ev.reduce((a,x)=>a+q(x.payable),0);
  const paid=ev.filter(x=>x.paid).reduce((a,x)=>a+q(x.payable),0);
- return {expense:expenses,payable:payables,paid,outstanding:payables-paid,
+ const stockConsumed=ev.filter(x=>['Inspeção','Reparo AOG','Revisão concluída'].includes(x.type))
+  .reduce((a,x)=>a+Math.max(0,q(x.expense)-q(x.payable)),0);
+ return {expense:expenses,payable:payables,paid,outstanding:payables-paid,stockConsumed,
    inventoryUSD:inventory(),inventoryDelta:inventory()-initial,initialInventoryUSD:initial};
 }
 function fleetStats(){
