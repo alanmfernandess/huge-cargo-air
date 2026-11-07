@@ -127,9 +127,9 @@
     '<p class="metricnotes">Aplicar distância atualiza tempo, combustível e custos previstos no HCA. Não altera automaticamente receita, contrato ou peso autorizado.</p></section></div>'+
     '<div class="columns equal" style="margin-top:16px"><section class="panel"><h3>METAR origem</h3><p class="helptext mono">'+h(s.origMETAR||'Não disponível no OFP')+'</p><p class="muted">'+h(s.origTAF||'TAF não incluído')+'</p></section>'+
     '<section class="panel"><h3>METAR destino</h3><p class="helptext mono">'+h(s.destMETAR||'Não disponível no OFP')+'</p><p class="muted">'+h(s.destTAF||'TAF não incluído')+'</p></section></div>'+
-    '<div class="sectionHead"><h2>Navlog ponto a ponto</h2><span class="pill">'+s.points.length+' pontos</span></div>'+
+    '<details class="hca-navlog"><summary>Navlog ponto a ponto · '+s.points.length+' pontos</summary>'+
     '<section class="panel"><div class="tablewrap" style="max-height:370px;overflow:auto"><table class="data"><thead><tr><th>#</th><th>Fix</th><th>Fase</th><th class="num">Altitude ft</th><th class="num">Trecho NM</th><th class="num">GS kt</th><th class="num">Vento</th><th class="num">Fuel trecho</th><th class="num">Fuel bordo</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    '<p class="metricnotes">Dados previstos do OFP, não telemetria do Xbox. Unidades de combustível no navlog preservadas conforme SimBrief. Ausências são mostradas como —.</p></section>'+
+    '<p class="metricnotes">Dados previstos do OFP · não telemetria Xbox. Unidades conforme arquivo original.</p></section></details>'+
     '<section class="panel" style="margin-top:16px"><h3>Rota ATC</h3><p class="helptext mono" style="overflow-wrap:anywhere">'+h(s.route||'Rota textual não disponível')+'</p></section>';
   }
   function render() {
