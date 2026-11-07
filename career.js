@@ -232,4 +232,5 @@ document.addEventListener('submit',e=>{
  if(e.target.id==='careerDebriefForm'){e.preventDefault();try{completeMission();}catch(err){statusMessage=err.message;window.render();}return;}
 });
 window.HCACareer={render,summary,overview,openFromOFP,estimate,getCareer,position};
+if(typeof window.render==='function')window.render();
 })();
