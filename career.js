@@ -30,13 +30,20 @@ function position(id){
 function activeFor(id){return getCareer().missions.find(m=>m.aircraft===id&&m.status==='planned');}
 function sum(ms,k){return ms.reduce((s,x)=>s+number(x[k]),0);}
 function summary(){
- const ms=getCareer().missions.filter(m=>m.status==='completed');
- const open=getCareer().missions.filter(m=>m.status==='planned');
- const rev=sum(ms,'revenue'), expenses=sum(ms,'expense'), payable=sum(ms,'payable');
- const received=sum(ms.filter(m=>m.received),'revenue');
- const paid=sum(ms.filter(m=>m.paid),'payable');
- const hours=sum(ms,'hours'), inventory=sum(ms,'inventoryUsed');
- return {completed:ms.length,open:open.length,revenue:rev,expense:expenses,profit:rev-expenses,cashDelta:received-paid,receivables:rev-received,payables:payable-paid,stockConsumed:inventory,hours,cycles:ms.length,missions:ms,openMissions:open};
+ const all=getCareer().missions;
+ const ms=all.filter(m=>m.status==='completed');
+ const closed=all.filter(m=>m.status==='completed'||m.status==='cancelled');
+ const open=all.filter(m=>m.status==='planned');
+ const mnt=window.HCAMaintenance?window.HCAMaintenance.finance():{expense:0,payable:0,paid:0,inventoryDelta:0,stockConsumed:0};
+ const rev=sum(ms,'revenue'),expenses=sum(closed,'expense')+mnt.expense,payable=sum(closed,'payable')+mnt.payable;
+ const received=sum(ms.filter(m=>m.received),'revenue'),paid=sum(closed.filter(m=>m.paid),'payable')+mnt.paid;
+ const hours=sum(ms,'hours'),inventory=sum(ms,'inventoryUsed')+(mnt.stockConsumed||0);
+ const cashDelta=received-paid,receivables=rev-received,payables=payable-paid,profit=rev-expenses;
+ const balanceError=cashDelta+receivables+mnt.inventoryDelta-payables-profit;
+ return {completed:ms.length,open:open.length,cancelled:closed.length-ms.length,
+  revenue:rev,expense:expenses,profit,cashDelta,receivables,payables,stockConsumed:inventory,
+  maintenanceExpense:mnt.expense,maintenanceOutstanding:mnt.payable-mnt.paid,balanceError,
+  hours,cycles:ms.length,missions:ms,openMissions:open};
 }
 function stats(){
  const a=summary();
@@ -50,13 +57,14 @@ function card(label,value,sub,icon){
  return '<div class="hca-stat"><div class="hca-stat-top"><span>'+esc(label)+'</span><span aria-hidden="true">'+esc(icon)+'</span></div><strong>'+esc(value)+'</strong><small>'+esc(sub)+'</small></div>';
 }
 function planes(){
+ const mnt=window.HCAMaintenance;
  return '<div class="hca-plane-list">'+state.fleet.map(a=>{
-   const pos=position(a.id), busy=activeFor(a.id);
+   const pos=position(a.id),busy=activeFor(a.id),health=mnt?mnt.availability(a.id):{ready:true};
    const flights=summary().missions.filter(m=>m.aircraft===a.id);
-   const bh=sum(flights,'hours');
+   const bh=sum(flights,'hours'),stateName=busy?'Programada':health.ready?'Pronta*':'Indisponível';
    return '<div class="hca-plane"><div class="hca-plane-name"><span class="hca-plane-icon">✈</span><b>'+esc(a.id)+'</b><span>'+esc(pos)+'</span></div>'+
-     '<div class="hca-plane-meta"><strong>'+format(bh,1)+' h</strong><span class="hca-dot '+(busy?'hca-dot-busy':'')+'"></span><span>'+(busy?'Em missão':'Disponível*')+'</span></div></div>';
- }).join('')+'</div><div class="hca-note">* Disponibilidade de carreira: somente bloqueio por missão aberta; não valida manutenção ou AFM.</div>';
+     '<div class="hca-plane-meta"><strong>'+format(bh,1)+' h</strong><span class="hca-dot '+(!health.ready?'mnt-engine-down':busy?'hca-dot-busy':'')+'"></span><span>'+stateName+'</span></div></div>';
+ }).join('')+'</div><div class="hca-note">*Pronta somente no escopo da carreira; não é liberação operacional certificada.</div>';
 }
 function routeViz(o){
  const route=esc(o.origin)+' → '+esc(o.destination);
@@ -154,7 +162,9 @@ function render(){
  (list.length?'<div class="hca-missions">'+list.map(missionSummary).join('')+'</div>':'<div class="hca-empty hca-compact">Nenhuma missão aceita.</div>')+
  '</div></div><div><div class="hca-panel"><div class="hca-title-row"><h3>Hangar</h3><span class="hca-chip">PANC</span></div>'+planes()+'</div>'+
  '<div class="hca-panel" style="margin-top:16px"><div class="hca-title-row"><h3>Ledger da carreira</h3></div>'+
- '<div class="hca-ledger"><div><span>Receita reconhecida</span><b>'+usd(a.revenue)+'</b></div><div><span>Custos econômicos</span><b>'+usd(a.expense)+'</b></div><div><span>Contas a receber</span><b>'+usd(a.receivables)+'</b></div><div><span>Contas a pagar</span><b>'+usd(a.payables)+'</b></div><div><span>Estoque consumido</span><b>'+usd(a.stockConsumed)+'</b></div></div>'+
+ '<div class="hca-ledger"><div><span>Receita reconhecida</span><b>'+usd(a.revenue)+'</b></div><div><span>Custos econômicos</span><b>'+usd(a.expense)+'</b></div><div><span>Contas a receber</span><b>'+usd(a.receivables)+'</b></div><div><span>Contas a pagar</span><b>'+usd(a.payables)+'</b></div><div><span>Estoque consumido</span><b>'+usd(a.stockConsumed)+'</b></div>'+
+ '<div><span>Despesa de manutenção</span><b>'+usd(a.maintenanceExpense)+'</b></div>'+
+ '<div><span>Conferência contábil</span><b>'+usd(a.balanceError)+'</b></div></div>'+
  '<div class="hca-note">Razão de missões fechado separadamente do cenário macroeconômico. Sem dupla contabilização no forecast.</div></div>'+
  '<div style="margin-top:16px">'+chart+'</div></div></div></div>';
 }
@@ -172,6 +182,10 @@ function makeMission(){
  const revenue=Number(getInput('careerRevenue'));
  if(!Number.isFinite(revenue)||revenue<0||revenue>1e9)throw Error('Receita contratada inválida.');
  const planned=estimate(draft);
+ if(window.HCAMaintenance){
+   const check=window.HCAMaintenance.flightCheck(aircraft,planned.hours);
+   if(!check.ready)throw Error('Aeronave bloqueada: '+check.reasons.join('; '));
+ }
  const c=getCareer();
  const id='HCA-'+String(c.nextId).padStart(4,'0');
  const m={id,aircraft,status:'planned',ofp:clone(draft),createdAt:new Date().toISOString(),
@@ -190,6 +204,7 @@ function completeMission(){
  const fuel=has(f)?Number(f):m.economic.fuelKg;
  const hrs=has(bh)?Number(bh):m.economic.hours;
  if(fuel>200000||hrs>40)throw Error('Valores fora dos limites de segurança do formulário.');
+ if(window.HCAMaintenance)window.HCAMaintenance.getM(); // migração histórica não duplica o voo atual.
  const mod=state.model, density=number(mod.density,3.04);
  const fuelUSD=fuel/Math.max(.1,density)*number(mod.fuelPrice);
  const partsUSD=hrs*number(mod.partsBH);
@@ -199,7 +214,8 @@ function completeMission(){
  m.fuelKg=fuel;m.hours=hrs;m.inventoryUsed=partsUSD;m.expense=expense;m.payable=fuelUSD+serviceUSD;
  m.notes=getInput('careerNotes').trim().slice(0,250);m.status='completed';m.completedAt=new Date().toISOString();
  m.costRates={fuelPrice:mod.fuelPrice,density:mod.density,partsBH:mod.partsBH,flightCrewBH:mod.flightCrewBH,mntLaborBH:mod.mntLaborBH,cycleCost:mod.cycleCost,feesRT:mod.feesRT};
- statusMessage='Missão '+m.id+' concluída. Resultado, ciclos, posição e saldos atualizados.';save();window.render();
+ if(window.HCAMaintenance)window.HCAMaintenance.addFlight(m);
+ statusMessage='Missão '+m.id+' concluída. 4 JT3D acumularam '+hrs.toFixed(2)+' BH e 1 ciclo; estoque e saldos atualizados.';save();window.render();
 }
 function settle(id,type){
  const m=past(id);if(!m||m.status!=='completed')throw Error('A missão ainda não foi concluída.');
@@ -225,9 +241,10 @@ function overview(){
 function financeStrip(){
  const a=summary();
  return '<div class="hca-panel" style="margin-bottom:14px"><div class="hca-title-row"><h3>Carreira · Lançamentos realizados</h3><span class="hca-chip">Separado da projeção</span></div>'+
- '<div class="hca-mini-grid"><div><small>RESULTADO ACUMULADO</small><strong>'+usd(a.profit)+'</strong></div>'+
- '<div><small>RECEBÍVEIS</small><strong>'+usd(a.receivables)+'</strong></div>'+
+ '<div class="hca-mini-grid"><div><small>RESULTADO INCL. MNT</small><strong>'+usd(a.profit)+'</strong></div>'+
+ '<div><small>FATURAS EM ABERTO</small><strong>'+usd(a.payables)+'</strong></div>'+
  '<div><small>CAIXA Δ</small><strong>'+usd(a.cashDelta)+'</strong></div></div>'+
+ '<div class="hca-note">Manutenção: '+usd(a.maintenanceExpense)+' · Conferência: '+usd(a.balanceError)+'</div>'+
  '<button class="hca-link" data-goto="career">Abrir ledger →</button></div>';
 }
 function fleetStrip(){
@@ -237,7 +254,8 @@ function fleetStrip(){
    const rows=a.missions.filter(m=>m.aircraft===f.id);
    return '<div><small>'+esc(f.id)+' · '+esc(position(f.id))+'</small><strong>'+format(sum(rows,'hours'),1)+' BH · '+rows.length+' ciclos</strong></div>';
  }).join('')+'</div>'+
- '<div class="hca-note">Horas e ciclos de carreira registrados; independentes do cenário projetado abaixo. Ainda não alteram intervalos do check certificado.</div></div>';
+ (window.HCAMaintenance?'<div class="hca-note">Manutenção: '+window.HCAMaintenance.fleetStats().available+'/3 aeronaves prontas · estoque '+usd(window.HCAMaintenance.inventory())+'</div>':'')+
+ '<div class="hca-note">Horas e ciclos dos 12 motores são registrados na carreira e não misturados à projeção teórica.</div></div>';
 }
 document.addEventListener('click',e=>{
  const el=e.target.closest('[data-career-open]');if(el){selected=el.dataset.careerOpen;draft=null;statusMessage='';window.render();return;}
