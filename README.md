@@ -16,6 +16,22 @@ Também é possível abrir `index.html` localmente no navegador.
 3. Escolha **main** e **/(root)** e clique **Save**.
 4. Aguarde a implantação e confira a URL indicada pelo GitHub.
 
+## HCA Control Center 2.0 + Career Mode
+
+**Interface:** estilo minimalista em `hca-ui.css`, com painel executivo, frota, missão gráfica e navegação contextual.
+
+**Ciclo de missão Xbox:**
+1. No SimBrief, gere um OFP e importe-o pela seção **SimBrief**.
+2. Clique **Criar missão**. Escolha a aeronave e ajuste a receita contratada (hipótese editável).
+3. O sistema congela uma cópia do OFP, impede a dupla alocação da aeronave e bloqueia massas que excedam os limites estruturais de referência.
+4. Execute o voo no Xbox; na seção **Carreira**, informe combustível consumido em **kg**, tempo de bloco em **horas** e eventuais despesas adicionais.
+5. Conclua a missão para registrar resultado, horas, ciclo, posição, despesas estimadas e recebíveis/pagáveis.
+6. Use **Registrar recebimento** e **Registrar pagamento** para movimentar o caixa da carreira. A fatura não é recebida automaticamente.
+
+**Limitações deliberadas:** o ledger de carreira é **separado** da projeção financeira prospectiva de 36 meses, para evitar dupla contagem. Os custos de peças e manutenção por hora permanecem estimativas. O modo carreira não é um sistema de despacho: dados do OFP/SimBrief não substituem AFM nem performance certificada. A calibração de consumo Xbox é apenas observacional; ainda não altera automaticamente os parâmetros do Boeing 707 de referência.
+
+**Backup:** o botão **Exportar JSON** salva também missões, snapshots do OFP e lançamentos da carreira. A importação restaura esse estado no navegador, mas não sincroniza entre dispositivos.
+
 ## SimBrief Dispatch (primeira integração)
 
 - Selecione **SimBrief Dispatch** na navegação lateral.
