@@ -114,30 +114,44 @@ function jobForm(){
  '<div class="hca-note">Receita sugerida pelo modelo, não cotação real. AFM, pista, meteorologia e infraestrutura permanecem pendentes. Aceitar cria uma missão <b>virtual</b>, não autoriza despacho real.</div></div></div>';
 }
 function missionSummary(m){
- const done=m.status==='completed';
- const e=m.economic||{};
- return '<article class="hca-mission '+(done?'hca-done':'')+'"><div class="hca-mission-top"><span><b>'+esc(m.id)+'</b> · '+esc(m.aircraft)+'</span><span class="hca-chip">'+(done?'Concluída':'Programada')+'</span></div>'+
+ const done=m.status==='completed',cancelled=m.status==='cancelled';
+ const ready=!window.HCAMaintenance||window.HCAMaintenance.availability(m.aircraft).ready;
+ const status=done?'Concluída':cancelled?'Cancelada':ready?'Programada':'AOG / Check';
+ return '<article class="hca-mission '+(done?'hca-done':'')+'"><div class="hca-mission-top"><span><b>'+esc(m.id)+'</b> · '+esc(m.aircraft)+'</span><span class="hca-chip">'+status+'</span></div>'+
  '<div class="hca-mission-route">'+esc(m.ofp.origin)+' <span>→</span> '+esc(m.ofp.destination)+'</div>'+
- '<div class="hca-mission-bottom"><span>'+usd(m.revenue)+'</span><span>'+(!done?'Pronta para debrief':'Margem '+usd(m.revenue-m.expense))+'</span></div>'+
- '<button class="hca-link" data-career-open="'+esc(m.id)+'">'+(done?'Detalhes →':'Registrar voo →')+'</button></article>';
+ '<div class="hca-mission-bottom"><span>'+usd(m.revenue)+'</span><span>'+(cancelled?'Penalidade '+usd(m.expense):done?'Margem '+usd(m.revenue-m.expense):ready?'Debrief disponível':'Reprogramar')+'</span></div>'+
+ '<button class="hca-link" data-career-open="'+esc(m.id)+'">'+(cancelled?'Ver cancelamento →':done?'Detalhes →':'Gerenciar missão →')+'</button></article>';
 }
 function focused(m){
  if(!m)return '';
- const est=m.economic,done=m.status==='completed';
- const d=m.ofp; const observed=m.observed||{};
+ const est=m.economic,done=m.status==='completed',cancelled=m.status==='cancelled';
+ const d=m.ofp,observed=m.observed||{};
+ const block=(!done&&!cancelled&&window.HCAMaintenance)?window.HCAMaintenance.flightCheck(m.aircraft,est.hours):{ready:true,reasons:[]};
+ const options=state.fleet.filter(a=>a.id!==m.aircraft&&!activeFor(a.id)&&position(a.id)===d.origin&&
+  (!window.HCAMaintenance||window.HCAMaintenance.flightCheck(a.id,est.hours).ready));
+ const reschedule=!done&&!cancelled&&!block.ready?
+ '<div class="hca-warning"><b>Aeronave indisponível:</b> '+esc(block.reasons.join('; '))+'</div>'+
+ (options.length?'<form id="careerReassignForm" class="hca-form"><label>Designar aeronave reserva<select id="careerNewAircraft">'+
+  options.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+'</option>').join('')+'</select></label>'+
+  '<div class="hca-form-actions"><button type="submit" class="hca-primary">Reatribuir missão</button></div></form>':
+  '<div class="hca-note">Nenhuma aeronave reserva disponível na origem.</div>'):'';
+ const cancelButton=!done&&!cancelled?'<button class="hca-quiet" data-career-cancel="'+esc(m.id)+'">Cancelar contrato</button>':'';
  return '<div class="hca-section"><div class="hca-title-row"><h3>'+esc(m.id)+'</h3><button class="hca-quiet" id="careerBack">Voltar</button></div><div class="hca-panel">'+routeViz(d)+
  '<div class="hca-mini-grid"><div><small>AVIÃO</small><strong>'+esc(m.aircraft)+'</strong></div><div><small>PAYLOAD OFP</small><strong>'+tonnes(d.payloadT)+'</strong></div><div><small>RECEITA</small><strong>'+usd(m.revenue)+'</strong></div></div>'+
- (done?'<div class="hca-mini-grid"><div><small>FUEL</small><strong>'+format(m.fuelKg)+' kg</strong><small>'+(observed.fuelKg===null?'Estimado':'Xbox')+'</small></div><div><small>HORAS</small><strong>'+format(m.hours,2)+' h</strong><small>'+(observed.blockHours===null?'Estimado':'Xbox')+'</small></div><div><small>RESULTADO</small><strong>'+usd(m.revenue-m.expense)+'</strong></div></div>'+
+ (cancelled?'<div class="hca-warning"><b>Contrato cancelado.</b> Penalidade reconhecida: '+usd(m.expense)+'</div>'+
+ (!m.paid?'<button class="hca-primary" data-career-pay="'+esc(m.id)+'">Pagar penalidade</button>':'<span class="hca-chip">Penalidade paga ✓</span>'):
+ done?'<div class="hca-mini-grid"><div><small>FUEL</small><strong>'+format(m.fuelKg)+' kg</strong><small>'+(observed.fuelKg===null?'Estimado':'Xbox')+'</small></div><div><small>HORAS</small><strong>'+format(m.hours,2)+' h</strong><small>'+(observed.blockHours===null?'Estimado':'Xbox')+'</small></div><div><small>RESULTADO</small><strong>'+usd(m.revenue-m.expense)+'</strong></div></div>'+
  '<div class="hca-compare"><div><span>Combustível · previsto</span><b>'+format(est.fuelKg)+' kg</b></div><div><span>Combustível · lançado</span><b>'+format(m.fuelKg)+' kg</b></div><div><span>Desvio</span><b>'+((observed.fuelKg===null||est.fuelKg<=0)?'Não medido':format((observed.fuelKg-est.fuelKg)/est.fuelKg*100,1)+'%')+'</b></div></div>'+
  '<div class="hca-form-actions">'+(!m.received?'<button class="hca-primary" data-career-receive="'+esc(m.id)+'">Registrar recebimento</button>':'<span class="hca-chip">Recebido ✓</span>')+
  (!m.paid?'<button class="hca-quiet" data-career-pay="'+esc(m.id)+'">Registrar pagamento</button>':'<span class="hca-chip">Custos pagos ✓</span>')+'</div>'+
  '<div class="hca-note">Peças consumidas são custo econômico do estoque; não entram novamente em contas a pagar. Resultado da carreira separado da projeção de 36 meses.</div>':
+ reschedule+
  '<form id="careerDebriefForm" class="hca-form">'+
  '<label>Combustível consumido no Xbox (kg)<input id="careerFuelKg" type="number" min="0" step="1" placeholder="Ex.: 8400"></label>'+
  '<label>Tempo de bloco observado (h)<input id="careerBlockHours" type="number" min="0.01" step=".01" placeholder="Ex.: 2.30"></label>'+
  '<label>Despesas adicionais (US$)<input id="careerExtra" type="number" min="0" step="1" value="0"></label>'+
  '<label>Observações<input id="careerNotes" maxlength="250" placeholder="Ventos, atrasos, condições..."></label>'+
- '<div class="hca-form-actions"><button class="hca-primary" type="submit">Concluir missão</button></div></form>'+
+ '<div class="hca-form-actions"><button class="hca-primary" type="submit">Concluir missão</button>'+cancelButton+'</div></form>'+
  '<div class="hca-note">Informe ao menos combustível ou tempo observado. Qualquer campo faltante será calculado e identificado como estimativa, sem contar na calibração.</div>')+'</div></div>';
 }
 function render(){
@@ -217,8 +231,30 @@ function completeMission(){
  if(window.HCAMaintenance)window.HCAMaintenance.addFlight(m);
  statusMessage='Missão '+m.id+' concluída. 4 JT3D acumularam '+hrs.toFixed(2)+' BH e 1 ciclo; estoque e saldos atualizados.';save();window.render();
 }
+function reassign(id,to){
+ const m=past(id);if(!m||m.status!=='planned')throw Error('Missão não disponível para reatribuição.');
+ if(!state.fleet.some(a=>a.id===to)||activeFor(to))throw Error('Aeronave selecionada não está disponível.');
+ if(position(to)!==m.ofp.origin)throw Error('A aeronave não está na origem do OFP.');
+ if(window.HCAMaintenance){
+  const check=window.HCAMaintenance.flightCheck(to,m.economic.hours);
+  if(!check.ready)throw Error('Motor/estoque bloqueado: '+check.reasons.join('; '));
+ }
+ if(!Array.isArray(m.reassignments))m.reassignments=[];
+ m.reassignments.push({from:m.aircraft,to,date:new Date().toISOString()});
+ m.aircraft=to;statusMessage='Missão reatribuída a '+to+'. Confirme compatibilidade do OFP e registro da aeronave.';
+ save();window.render();
+}
+function cancel(id){
+ const m=past(id);if(!m||m.status!=='planned')throw Error('Somente missões abertas podem ser canceladas.');
+ const fee=Math.max(0,number(state.model.contractPenalty,0));
+ m.status='cancelled';m.cancelledAt=new Date().toISOString();
+ m.revenue=0;m.expense=fee;m.payable=fee;m.inventoryUsed=0;m.paid=fee===0;m.received=true;
+ statusMessage='Missão cancelada. Penalidade hipotética de '+usd(fee)+' registrada no razão.';
+ save();window.render();
+}
 function settle(id,type){
- const m=past(id);if(!m||m.status!=='completed')throw Error('A missão ainda não foi concluída.');
+ const m=past(id);if(!m||!(m.status==='completed'||m.status==='cancelled'))throw Error('Missão ainda aberta.');
+ if(type==='receive'&&m.status!=='completed')throw Error('Cancelamento não gera receita.');
  if(type==='receive'&&!m.received){m.received=true;m.receivedAt=new Date().toISOString();}
  if(type==='pay'&&!m.paid){m.paid=true;m.paidAt=new Date().toISOString();}
  statusMessage='Lançamento de '+(type==='receive'?'recebimento':'pagamento')+' registrado.';
@@ -261,6 +297,7 @@ document.addEventListener('click',e=>{
  const el=e.target.closest('[data-career-open]');if(el){selected=el.dataset.careerOpen;draft=null;statusMessage='';window.render();return;}
  const recv=e.target.closest('[data-career-receive]');if(recv){try{settle(recv.dataset.careerReceive,'receive');}catch(err){statusMessage=err.message;window.render();}return;}
  const pay=e.target.closest('[data-career-pay]');if(pay){try{settle(pay.dataset.careerPay,'pay');}catch(err){statusMessage=err.message;window.render();}return;}
+ const cancelButton=e.target.closest('[data-career-cancel]');if(cancelButton){if(window.confirm('Cancelar missão e lançar penalidade contratual?')){try{cancel(cancelButton.dataset.careerCancel);}catch(err){statusMessage=err.message;window.render();}}return;}
  if(e.target.closest('#careerBack')){selected=null;statusMessage='';window.render();return;}
  if(e.target.closest('#careerDiscard')){draft=null;statusMessage='Rascunho descartado. O OFP original permanece no SimBrief.';window.render();return;}
  if(e.target.closest('#careerUseOFP')){openFromOFP(state.simbrief);return;}
@@ -271,7 +308,8 @@ document.addEventListener('input',e=>{
 document.addEventListener('submit',e=>{
  if(e.target.id==='careerCreateForm'){e.preventDefault();try{makeMission();}catch(err){statusMessage=err.message;window.render();}return;}
  if(e.target.id==='careerDebriefForm'){e.preventDefault();try{completeMission();}catch(err){statusMessage=err.message;window.render();}return;}
+ if(e.target.id==='careerReassignForm'){e.preventDefault();try{reassign(selected,getInput('careerNewAircraft'));}catch(err){statusMessage=err.message;window.render();}return;}
 });
-window.HCACareer={render,summary,overview,openFromOFP,estimate,getCareer,position,financeStrip,fleetStrip};
+window.HCACareer={render,summary,overview,openFromOFP,estimate,getCareer,position,financeStrip,fleetStrip,reassign,cancel};
 if(typeof window.render==='function')window.render();
 })();
