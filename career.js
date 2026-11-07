@@ -219,6 +219,23 @@ function overview(){
  '</div><div class="hca-panel" style="margin-top:16px"><div class="hca-title-row"><h3>Fleet</h3><button class="hca-link" data-goto="fleet">Detalhes →</button></div>'+planes()+'</div></div></div>'+
  '<div class="hca-footline"><span>Carreira · resultado realizado '+usd(a.profit)+'</span><span>Recebíveis '+usd(a.receivables)+'</span><span>Estimativas econômicas ≠ telemetria Xbox</span></div></div>';
 }
+function financeStrip(){
+ const a=summary();
+ return '<div class="hca-panel" style="margin-bottom:14px"><div class="hca-title-row"><h3>Carreira · Lançamentos realizados</h3><span class="hca-chip">Separado da projeção</span></div>'+
+ '<div class="hca-mini-grid"><div><small>RESULTADO ACUMULADO</small><strong>'+usd(a.profit)+'</strong></div>'+
+ '<div><small>RECEBÍVEIS</small><strong>'+usd(a.receivables)+'</strong></div>'+
+ '<div><small>CAIXA Δ</small><strong>'+usd(a.cashDelta)+'</strong></div></div>'+
+ '<button class="hca-link" data-goto="career">Abrir ledger →</button></div>';
+}
+function fleetStrip(){
+ const a=summary();
+ return '<div class="hca-panel" style="margin-bottom:14px"><div class="hca-title-row"><h3>Frota · Histórico Xbox</h3><span class="hca-chip">'+a.completed+' voos concluídos</span></div>'+
+ '<div class="hca-mini-grid">'+state.fleet.map(f=>{
+   const rows=a.missions.filter(m=>m.aircraft===f.id);
+   return '<div><small>'+esc(f.id)+' · '+esc(position(f.id))+'</small><strong>'+format(sum(rows,'hours'),1)+' BH · '+rows.length+' ciclos</strong></div>';
+ }).join('')+'</div>'+
+ '<div class="hca-note">Horas e ciclos de carreira registrados; independentes do cenário projetado abaixo. Ainda não alteram intervalos do check certificado.</div></div>';
+}
 document.addEventListener('click',e=>{
  const el=e.target.closest('[data-career-open]');if(el){selected=el.dataset.careerOpen;draft=null;statusMessage='';window.render();return;}
  const recv=e.target.closest('[data-career-receive]');if(recv){try{settle(recv.dataset.careerReceive,'receive');}catch(err){statusMessage=err.message;window.render();}return;}
@@ -231,6 +248,6 @@ document.addEventListener('submit',e=>{
  if(e.target.id==='careerCreateForm'){e.preventDefault();try{makeMission();}catch(err){statusMessage=err.message;window.render();}return;}
  if(e.target.id==='careerDebriefForm'){e.preventDefault();try{completeMission();}catch(err){statusMessage=err.message;window.render();}return;}
 });
-window.HCACareer={render,summary,overview,openFromOFP,estimate,getCareer,position};
+window.HCACareer={render,summary,overview,openFromOFP,estimate,getCareer,position,financeStrip,fleetStrip};
 if(typeof window.render==='function')window.render();
 })();
