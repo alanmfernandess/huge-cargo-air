@@ -136,15 +136,65 @@
     const user=localStorage.getItem('HCA_SB_USER')||'';
     const s=state.simbrief;
     return '<div class="sectionHead"><div><h2>SimBrief Dispatch</h2><p>Importe o OFP já gerado para analisar rota, combustível, meteorologia e perfil vertical.</p></div><span class="pill pending">Xbox · leitura somente</span></div>'+
-    '<section class="panel"><div class="flex"><div class="field" style="flex:2;min-width:190px"><label>Alias SimBrief / Navigraph</label><input id="sbUsername" type="text" autocomplete="off" spellcheck="false" value="'+h(user)+'" placeholder="Seu alias (não a senha)"></div>'+
+    '<section class="panel"><div class="flex"><div class="field" style="flex:2;min-width:190px"><label>Navigraph Alias ou Pilot ID</label><input id="sbUsername" type="text" autocomplete="off" spellcheck="false" value="'+h(user)+'" placeholder="Alias ou Pilot ID (1–7 dígitos)"></div>'+
     '<button class="btn main" id="sbFetch" style="align-self:end">Importar último OFP</button>'+
     '<button class="btn" id="sbFile" style="align-self:end">Importar JSON/XML</button><input type="file" id="sbUpload" class="fileInput" accept=".json,.xml,application/json,text/xml,application/xml">'+
     '<a class="btn" style="align-self:end" href="https://dispatch.simbrief.com/" target="_blank" rel="noopener noreferrer">Abrir SimBrief ↗</a></div>'+
-    '<p class="metricnotes">Consulta realizada somente ao clicar. Sem senha ou chave. Se houver bloqueio CORS do navegador, baixe o XML/JSON do OFP e importe o arquivo.</p>'+
+    '<p class="metricnotes">Use o <b>Alias (Navigraph)</b> ou o <b>Pilot ID</b> — nunca o e-mail ou o “Original Username”. Consulte <a href="https://dispatch.simbrief.com/account" target="_blank" rel="noopener noreferrer">Configurações SimBrief ↗</a>. Gere um OFP antes de importar. Consulta somente por clique.</p>'+
     '<p class="muted" id="sbStatus" role="status" aria-live="polite"></p></section>'+
     (s?renderPlan(s):'<div class="panel" style="margin-top:16px;text-align:center;padding:38px"><span class="bigIcon">✈</span><h3>Nenhum OFP carregado</h3><p class="muted">Gere o plano no SimBrief e importe para começar a análise de missão.</p></div>');
   }
-  function notify(msg){const x=qs('sbStatus');if(x)x.textContent=msg;}
+  function notify(msg){
+    const x=qs('sbStatus');
+    if(x){x.textContent=msg;x.classList.toggle('sb-error', /^(Erro|Falha|Conta|Nenhum|Identificador|Conexão|SimBrief recusou)/i.test(msg));}
+  }
+  // Latest OFP endpoint. Username (Navigraph Alias) and numeric Pilot ID use different query keys.
+  function identify(value){
+    const id=String(value==null?'':value).trim();
+    if(!id)throw new Error('Informe seu Navigraph Alias ou Pilot ID.');
+    if(id.includes('@'))throw new Error('Use o Navigraph Alias ou Pilot ID, não o e-mail da conta.');
+    if(/^[0-9]+$/.test(id)){
+      if(id.length>7)throw new Error('Pilot ID inválido: informe de 1 a 7 dígitos.');
+      return {key:'userid',value:id};
+    }
+    if(id.length>64||/[<>\r\n]/.test(id))throw new Error('Navigraph Alias inválido. Confira o identificador nas configurações SimBrief.');
+    return {key:'username',value:id};
+  }
+  function buildUrl(value){
+    const user=identify(value);
+    return api+'?'+user.key+'='+encodeURIComponent(user.value)+'&client=HugeCargoAir-2.2&json=v2';
+  }
+  function fetchStatus(payload,text=''){
+    const s=get(payload && payload.fetch,'status');
+    if(s!=null)return String(s).trim();
+    // An HTTP 400 may carry an XML-formatted error even if json=v2 was requested.
+    const match=String(text).match(/<status[^>]*>([\s\S]*?)<\/status>/i);
+    return match?match[1].replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').trim():'';
+  }
+  function humanize(status,code){
+    const msg=String(status||'').replace(/^(error\s*:\s*)/i,'').trim();
+    const lower=msg.toLowerCase();
+    if(/no flight plan|no ofp|no flightplans|no plan on file|no flight plan on file|flight plan.*not found/.test(lower))
+      return 'Nenhum OFP disponível para essa conta. Gere um novo plano no SimBrief e tente novamente.';
+    if(/invalid user|unknown user|user not found|no user|invalid userid|invalid username|unable to locate user|does not exist|not found for.*user/.test(lower))
+      return 'Conta não localizada. Confira o Navigraph Alias ou Pilot ID nas configurações do SimBrief.';
+    if(code===400)
+      return 'SimBrief recusou a consulta (HTTP 400). '+(msg?'Motivo: '+msg.slice(0,180)+'. ':'')+'Confira o Alias/Pilot ID e se existe um OFP gerado.';
+    return 'Falha na consulta ao SimBrief'+(code?' (HTTP '+code+')':'')+(msg?': '+msg.slice(0,200):'.');
+  }
+  async function decodeResponse(res){
+    const text=await res.text();
+    let data=null;
+    try{data=parse(text);}catch(e){
+      if(!res.ok)throw new Error(humanize(fetchStatus(null,text),res.status));
+      throw new Error('O SimBrief retornou dados em formato inesperado. '+e.message);
+    }
+    const status=fetchStatus(data,text);
+    if(!res.ok || (status && !/^success$/i.test(status))){
+      throw new Error(humanize(status,res.status));
+    }
+    return data;
+  }
   function assign(data) {
     const x=normalize(data);
     state.simbrief=x;
@@ -163,16 +213,21 @@
     }
     if(!ev.target.closest('#sbFetch'))return;
     const user=qs('sbUsername')?.value.trim();
-    if(!user || user.length>64 || !/^[\w .@-]+$/u.test(user)){notify('Informe um alias SimBrief válido (sem senha).');return;}
-    try {
-      localStorage.setItem('HCA_SB_USER',user);
-      notify('Importando o OFP mais recente…');
-      const url=api+'?username='+encodeURIComponent(user)+'&client=HugeCargoAir-v1&json=v2';
+    let url;
+    try{url=buildUrl(user);}
+    catch(e){notify('Erro: '+e.message);return;}
+    localStorage.setItem('HCA_SB_USER',user);
+    notify('Consultando o OFP mais recente…');
+    try{
       const res=await fetch(url,{mode:'cors',credentials:'omit',cache:'no-store'});
-      if(!res.ok)throw new Error('HTTP '+res.status);
-      assign(await res.json());
+      const data=await decodeResponse(res);
+      assign(data);
     }catch(e){
-      notify('A consulta não foi concluída ('+e.message+'). O navegador pode bloquear acesso CORS; use Importar JSON/XML. Não houve alteração no plano salvo.');
+      if(e instanceof TypeError){
+        notify('Conexão bloqueada ou indisponível (possível CORS ou rede). Importe o arquivo JSON/XML do OFP.');
+      }else{
+        notify('Erro: '+e.message+' O plano anterior foi preservado.');
+      }
     }
   });
   document.addEventListener('change',async(ev)=>{
@@ -182,5 +237,5 @@
     try{if(file.size>5_000_000)throw new Error('Arquivo maior que 5 MB.');assign(parse(await file.text()));}
     catch(e){notify('Falha na importação: '+e.message);}
   });
-  window.HCASimBrief={render,normalize,parse};
+  window.HCASimBrief={render,normalize,parse,identify,buildUrl,fetchStatus,humanize,decodeResponse};
 })();
